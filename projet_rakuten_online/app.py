@@ -145,6 +145,7 @@ st.sidebar.title("Sommaire")
 pages = [
     "Présentation",
     "Données",
+    "Pré-processing",
     "Résultats",
     "Démo"
 ]
@@ -391,6 +392,43 @@ elif page == "Données":
                 caption="Rapprochement texte/image & catégorie de produit",
                 width=1000
             )
+
+# --------------------------------------------------
+# PAGE PRÉ-PROCESSING
+# --------------------------------------------------
+elif page == "Pré-processing":
+    st.markdown(
+        "<h1 class='red-title center-title'>Pré-processing</h1>",
+        unsafe_allow_html=True
+    )
+
+    st.write("""
+    Pour ce projet, nous avons utilisé deux catégories de données non structurées : le texte et l’image.
+
+    Ces données peuvent être vectorisées de plusieurs manières différentes.
+    Nous avons donc testé plusieurs scénarios de pré-processing afin d’identifier la stratégie la plus performante.
+    """)
+
+    show_image(
+        "scenario_preprocessing.png",
+        caption="Représentation des scénarios de pré-processing",
+        width=1000
+    )
+
+    show_scenarios = st.checkbox("**Afficher les scénarios**")
+
+    if show_scenarios:
+        st.markdown("""
+        **Scénario A :** Vectorisation des images par CNN, vectorisation du texte avec SpaCy sans traduction de texte.
+
+        **Scénario B :** Vectorisation des images par CNN, vectorisation du texte avec TF-IDF, après tokenisation, lemmatisation, application des stop-words, sans traduction de texte et réduction par TruncatedSVD.
+
+        **Scénario C :** Même vectorisation que le scénario B, sans application de réduction.
+
+        **Scénario D :** Vectorisation des images par transformations successives : passage en gris, filtre Gaussien, filtre Laplacian, réduction de taille ; vectorisation du texte avec TF-IDF, tokenisation, lemmatisation, stop-words et TruncatedSVD.
+
+        **Scénario E :** Même vectorisation que le scénario B, avec traduction du texte vers la langue majoritaire : le français.
+        """)
 
 # --------------------------------------------------
 # PAGE RÉSULTATS
