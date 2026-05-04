@@ -148,6 +148,7 @@ pages = [
     "Pré-processing",
     "Machine Learning",
     "Deep Learning",
+    "Conclusion",
     "Résultats",
     "Démo"
 ]
@@ -670,6 +671,104 @@ elif page == "Deep Learning":
             Le modèle se concentre principalement sur les contours des objets.
             👉 Limite : difficile pour livres / DVD (formes similaires)
             """)
+
+# --------------------------------------------------
+# PAGE CONCLUSION
+# --------------------------------------------------
+elif page == "Conclusion":
+    st.markdown(
+        "<h1 class='red-title center-title'>Conclusion</h1>",
+        unsafe_allow_html=True
+    )
+
+    st.write("""
+    Les choix effectués tout au long du projet ont été guidés par des objectifs de performance et de robustesse.
+
+    Les techniques de réduction de dimension et le choix des algorithmes ont permis d’optimiser les résultats malgré la nature complexe et non structurée des données.
+
+    Le modèle hybride alliant **EfficientNetB0 et LSTM** s’est avéré le plus adapté pour la classification des produits e-commerce de Rakuten.
+
+    **En conclusion :**  
+    Objectif atteint ! **Score final : F1-pondéré de 0.96**  
+    Benchmark : 0.81 — Meilleur score Challenge : 0.92
+
+    Très bonne prédiction des catégories avec le jeu d’entraînement fourni.
+    """)
+
+    tabs = st.tabs(["Limites du modèle", "Préconisations et améliorations"])
+
+    with tabs[0]:
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown("""
+            **Limites du modèle**
+
+            - La traduction du texte a peu d’impact sur les performances, car le français est la langue la plus présente.
+            - Certaines catégories contiennent moins de textes en français.
+            - La précision dépend fortement de la qualité de la description textuelle.
+            - Pour les livres, magazines ou DVD, le modèle distingue difficilement les détails fins des images.
+            - Le modèle est moins efficace lorsqu’une catégorie contient des produits très différents.
+            - Le modèle est moins efficace lorsque plusieurs catégories sont visuellement très proches.
+            """)
+
+        with col2:
+            img_tabs = st.tabs([
+                "Français 1",
+                "Français 2",
+                "Français 3",
+                "Précision",
+                "Images",
+                "Prédictions"
+            ])
+
+            with img_tabs[0]:
+                show_image("pie_1.png", caption="Le français en rouge", use_container_width=True)
+
+            with img_tabs[1]:
+                show_image("pie_2.png", caption="Le français en rouge", use_container_width=True)
+
+            with img_tabs[2]:
+                show_image("pie_3.png", caption="Le français en rouge", use_container_width=True)
+
+            with img_tabs[3]:
+                show_image("exemple_text.png", caption="Exemple de désignation", use_container_width=True)
+                st.write("""
+                Dans cet exemple, la variable **designation** n’est pas assez détaillée.
+
+                Le modèle peut donc avoir du mal à identifier correctement l’objet et à choisir la bonne catégorie,
+                notamment lorsqu’il existe plusieurs catégories proches comme les livres, magazines ou DVD.
+                """)
+
+            with img_tabs[4]:
+                show_image("img_inter_2.png", caption="Cartes de saillance", width=400)
+
+            with img_tabs[5]:
+                show_image(
+                    "mtx_eff_LSTM_rem.png",
+                    caption="Matrice de confusion EfficientNetB0-LSTM",
+                    use_container_width=True
+                )
+
+    with tabs[1]:
+        st.markdown("""
+        **Préconisations et améliorations**
+
+        - **Traduction en français :**  
+          Appliquer la traduction uniquement sur les catégories où le français n’est pas majoritaire.
+
+        - **Rééquilibrage des données :**  
+          Rééquilibrer les données durant le pré-processing afin que chaque catégorie soit représentée plus équitablement.
+
+        - **Augmentation des données :**  
+          Utiliser des techniques d’augmentation d’images : rotation, recadrage, ajout de bruit, transformation de contraste.
+
+        - **Nouveaux modèles Deep Learning :**  
+          Explorer des modèles multimodaux plus récents, plus rapides et moins gourmands en ressources.
+
+        - **Amélioration des descriptions produits :**  
+          Enrichir les descriptions textuelles pour améliorer la discrimination entre catégories proches.
+        """)
 
 # --------------------------------------------------
 # PAGE RÉSULTATS
