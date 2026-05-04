@@ -1,0 +1,11 @@
+models/
+temp_dir/
+__pycache__/
+*.keras
+*.h5
+*.pkl
+*.zip
+*.rar
+*.7z
+*.msix
+.env
