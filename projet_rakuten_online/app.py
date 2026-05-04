@@ -147,6 +147,7 @@ pages = [
     "Données",
     "Pré-processing",
     "Machine Learning",
+    "Deep Learning",
     "Résultats",
     "Démo"
 ]
@@ -542,6 +543,133 @@ elif page == "Machine Learning":
                 caption="RandomUnderSampler",
                 width=600
             )
+
+# --------------------------------------------------
+# PAGE DEEP LEARNING
+# --------------------------------------------------
+elif page == "Deep Learning":
+
+    st.markdown(
+        "<h1 class='red-title center-title'>Deep Learning</h1>",
+        unsafe_allow_html=True
+    )
+
+    tabs = st.tabs([
+        "Benchmark",
+        "Modèles",
+        "Scores",
+        "Interprétation"
+    ])
+
+    # -----------------------------------------
+    # TAB 1 : Benchmark
+    # -----------------------------------------
+    with tabs[0]:
+        st.header("Benchmark Rakuten")
+
+        st.write("""
+        Le challenge Rakuten utilise deux modèles :
+
+        - **Images** : ResNet50 (pré-entraîné ImageNet)
+        - **Texte** : CNN simplifié
+
+        **Scores benchmark :**
+        - Images : 0.55
+        - Texte : 0.81
+        """)
+
+    # -----------------------------------------
+    # TAB 2 : Modèles
+    # -----------------------------------------
+    with tabs[1]:
+        st.header("Modèles testés")
+
+        # -------- DNN --------
+        with st.expander("DNN (Dense Neural Network) - F1 : 0.77"):
+            st.write("Modèle dense classique sur features texte/image.")
+
+            col1, col2 = st.columns(2)
+            with col1:
+                show_image("rep_dnn.png", caption="Rapport classification")
+            with col2:
+                show_image("mtx_dnn.png", caption="Matrice de confusion")
+
+        # -------- DistilBERT --------
+        with st.expander("DistilBERT - F1 : 0.92"):
+            st.write("Modèle NLP avancé basé sur Transformer.")
+
+            col1, col2 = st.columns(2)
+            with col1:
+                show_image("rep_d_bert.png")
+            with col2:
+                show_image("mtx_d_bert.png")
+
+        # -------- EfficientNet + LSTM --------
+        with st.expander("EfficientNetB0 + LSTM - F1 : 0.96 ⭐"):
+            st.write("""
+            Meilleur modèle :
+            - Images → EfficientNet
+            - Texte → LSTM
+            """)
+
+            col1, col2 = st.columns(2)
+            with col1:
+                show_image("rep_eff_lstm.png")
+            with col2:
+                show_image("mtx_eff_LSTM.png")
+
+    # -----------------------------------------
+    # TAB 3 : Scores
+    # -----------------------------------------
+    with tabs[2]:
+        st.header("Synthèse des performances")
+
+        st.write("""
+        Le modèle **EfficientNetB0 + LSTM** est le meilleur :
+
+        - F1-score : **0.96**
+        - > Benchmark (0.81)
+        - > Challenge (0.92)
+        """)
+
+        show_image("score_deep.png", caption="Comparaison des modèles")
+
+    # -----------------------------------------
+    # TAB 4 : Interprétation
+    # -----------------------------------------
+    with tabs[3]:
+        st.header("Interprétation du modèle")
+
+        sub_tabs = st.tabs(["Texte", "Images"])
+
+        # ---- TEXTE ----
+        with sub_tabs[0]:
+            st.subheader("Analyse texte")
+
+            show_image("txt_inter_1.png", caption="Importance des mots")
+
+            col1, col2 = st.columns(2)
+            with col1:
+                show_image("txt_inter_2.png")
+            with col2:
+                show_image("txt_inter_3.png")
+
+        # ---- IMAGES ----
+        with sub_tabs[1]:
+            st.subheader("Analyse images")
+
+            show_image("img_inter_1.png", caption="Gradients")
+
+            col1, col2 = st.columns(2)
+            with col1:
+                show_image("img_inter_2.png")
+            with col2:
+                show_image("img_inter_3.png")
+
+            st.info("""
+            Le modèle se concentre principalement sur les contours des objets.
+            👉 Limite : difficile pour livres / DVD (formes similaires)
+            """)
 
 # --------------------------------------------------
 # PAGE RÉSULTATS
