@@ -2,7 +2,15 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import pickle
+import requests
+import numpy as np
+import tensorflow as tf
+
 from pathlib import Path
+from PIL import Image
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.preprocessing.image import load_img, img_to_array
 
 # --------------------------------------------------
 # CONFIGURATION
@@ -10,6 +18,8 @@ from pathlib import Path
 BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
 IMG_DIR = BASE_DIR / "assets" / "images"
+MODEL_DIR = BASE_DIR / "models"
+MODEL_DIR.mkdir(exist_ok=True)
 
 HF_BASE_URL = "https://huggingface.co/datasets/jgmarchetta/rakuten-data/resolve/main/"
 
@@ -44,22 +54,20 @@ body, h1, h2, h3, h4, h5, h6, p, div, span, li, a {
 """, unsafe_allow_html=True)
 
 # --------------------------------------------------
-# FONCTIONS
+# FONCTIONS DATA
 # --------------------------------------------------
-@st.cache_data(show_spinner="Chargement des données...")
+@st.cache_data(show_spinner="Chargement des données locales...")
 def load_local_csv(path, sep=","):
     return pd.read_csv(path, sep=sep)
 
 
-@st.cache_data(show_spinner="Chargement du fichier depuis Hugging Face...")
+@st.cache_data(show_spinner="Chargement depuis Hugging Face...")
 def load_remote_csv(filename, sep=","):
-    url = HF_BASE_URL + filename
-    return pd.read_csv(url, sep=sep)
+    return pd.read_csv(HF_BASE_URL + filename, sep=sep)
 
 
 def show_image(filename, caption=None, width=None, use_container_width=False):
     image_path = IMG_DIR / filename
-
     if image_path.exists():
         st.image(
             str(image_path),
@@ -110,7 +118,6 @@ def plot_duplicate_percentage(df, column_name):
         return
 
     duplicate_counts = df[column_name].duplicated().value_counts()
-
     unique_count = duplicate_counts.get(False, 0)
     duplicate_count = duplicate_counts.get(True, 0)
 
@@ -132,6 +139,59 @@ def plot_duplicate_percentage(df, column_name):
 
 
 # --------------------------------------------------
+# FONCTIONS IA
+# --------------------------------------------------
+def download_from_hf(filename):
+    local_path = MODEL_DIR / filename
+    if not local_path.exists():
+        with st.spinner(f"Téléchargement de {filename}..."):
+            response = requests.get(HF_BASE_URL + filename)
+            response.raise_for_status()
+            with open(local_path, "wb") as f:
+                f.write(response.content)
+    return local_path
+
+
+@st.cache_resource(show_spinner="Chargement du modèle IA...")
+def load_demo_resources():
+    tokenizer_path = download_from_hf("tokenizer.pkl")
+    label_encoder_path = download_from_hf("label_encoder.pkl")
+    model_path = download_from_hf("model_EfficientNetB0-LSTM.keras")
+
+    with open(tokenizer_path, "rb") as handle:
+        tokenizer = pickle.load(handle)
+
+    with open(label_encoder_path, "rb") as handle:
+        label_encoder = pickle.load(handle)
+
+    model = tf.keras.models.load_model(model_path)
+    categories = load_remote_csv("categories_prdtypecode.csv", sep=";")
+
+    return tokenizer, label_encoder, model, categories
+
+
+def preprocess_text(tokenizer, text, max_len=100):
+    sequences = tokenizer.texts_to_sequences([text])
+    return pad_sequences(sequences, maxlen=max_len)
+
+
+def preprocess_uploaded_image(uploaded_file, image_size=128):
+    temp_dir = BASE_DIR / "temp_dir"
+    temp_dir.mkdir(exist_ok=True)
+
+    image_path = temp_dir / uploaded_file.name
+
+    with open(image_path, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+
+    img = load_img(image_path, target_size=(image_size, image_size))
+    img = img_to_array(img)
+    img = tf.keras.applications.efficientnet.preprocess_input(img)
+
+    return np.expand_dims(img, axis=0), image_path
+
+
+# --------------------------------------------------
 # SIDEBAR
 # --------------------------------------------------
 st.sidebar.markdown("""
@@ -149,8 +209,7 @@ pages = [
     "Machine Learning",
     "Deep Learning",
     "Conclusion",
-    "Résultats",
-    "Démo"
+    "Démo IA"
 ]
 
 page = st.sidebar.radio("Aller vers :", pages)
@@ -169,13 +228,12 @@ if page == "Présentation":
     with tab1:
         st.write("""
         Dans le cadre d'un challenge organisé par l'ENS et de notre formation Data Scientist au sein de DataScientest,
-        nous avons pu travailler sur la classification de produits à grande échelle.
+        nous avons travaillé sur la classification de produits à grande échelle.
 
         Le projet vise à prédire le type de chaque produit tel que défini dans le catalogue de Rakuten France.
         """)
 
         col1, col2, col3 = st.columns(3)
-
         with col2:
             show_image(
                 "rakuten_image_entreprise.jpg",
@@ -194,9 +252,12 @@ if page == "Présentation":
         st.write("""
         **Objectif du projet**
 
-        L’objectif du projet est la classification multimodale à grande échelle des données de produits en codes de types de produits.
+        L’objectif du projet est la classification multimodale à grande échelle des produits.
 
-        Il s’agit de prédire le code type des produits à partir de données textuelles et images.
+        Il s’agit de prédire le code type produit à partir de deux sources :
+
+        - les données textuelles,
+        - les images des produits.
         """)
 
         show_image(
@@ -238,8 +299,8 @@ elif page == "Données":
 
         try:
             df_train = load_remote_csv("X_train_update.csv")
-
             st.success("Fichier X_train chargé depuis Hugging Face.")
+
             st.data_editor(
                 df_train.head(),
                 column_config={
@@ -268,10 +329,7 @@ elif page == "Données":
                 plot_duplicate_percentage(df_train, "designation")
 
             with col4:
-                show_image(
-                    "histogramme_langues_X_train.png",
-                    use_container_width=True
-                )
+                show_image("histogramme_langues_X_train.png", use_container_width=True)
 
         except Exception as e:
             st.error(f"Erreur lors du chargement de X_train : {e}")
@@ -281,8 +339,8 @@ elif page == "Données":
 
         try:
             df_test = load_remote_csv("X_test_update.csv")
-
             st.success("Fichier X_test chargé depuis Hugging Face.")
+
             st.data_editor(
                 df_test.head(),
                 column_config={
@@ -311,10 +369,7 @@ elif page == "Données":
                 plot_duplicate_percentage(df_test, "designation")
 
             with col4:
-                show_image(
-                    "histogramme_langues_X_test.png",
-                    use_container_width=True
-                )
+                show_image("histogramme_langues_X_test.png", use_container_width=True)
 
         except Exception as e:
             st.error(f"Erreur lors du chargement de X_test : {e}")
@@ -324,7 +379,6 @@ elif page == "Données":
 
         try:
             df_target = load_remote_csv("Y_train_CVw08PX.csv")
-
             st.success("Fichier Y_train chargé depuis Hugging Face.")
 
             col1, col2 = st.columns(2)
@@ -442,13 +496,7 @@ elif page == "Machine Learning":
         unsafe_allow_html=True
     )
 
-    tabs = st.tabs([
-        "Scénario A",
-        "Scénario B",
-        "Scénario E",
-        "Amélioration",
-        "Optimisation"
-    ])
+    tabs = st.tabs(["Scénario A", "Scénario B", "Scénario E", "Amélioration", "Optimisation"])
 
     def add_model_expanders(images):
         for model_name, infos in images.items():
@@ -489,10 +537,7 @@ elif page == "Machine Learning":
 
     with tabs[0]:
         st.header("Scénario A")
-        st.write("""
-        Vectorisation des images par CNN, vectorisation du texte avec SpaCy sans traduction de texte.
-        """)
-        st.write("Les modèles :")
+        st.write("Vectorisation des images par CNN, vectorisation du texte avec SpaCy sans traduction de texte.")
         add_model_expanders(images_scenario_A)
 
     with tabs[1]:
@@ -501,15 +546,11 @@ elif page == "Machine Learning":
         Vectorisation des images par CNN, vectorisation du texte avec TF-IDF, après tokenisation,
         lemmatisation, application des stop-words, sans traduction de texte et réduction par TruncatedSVD.
         """)
-        st.write("Les modèles :")
         add_model_expanders(images_scenario_B)
 
     with tabs[2]:
         st.header("Scénario E")
-        st.write("""
-        Même vectorisation que le scénario B, avec traduction du texte dans la langue majoritaire : le français.
-        """)
-        st.write("Les modèles :")
+        st.write("Même vectorisation que le scénario B, avec traduction du texte dans la langue majoritaire : le français.")
         add_model_expanders(images_scenario_E)
 
     with tabs[3]:
@@ -517,12 +558,7 @@ elif page == "Machine Learning":
         st.write("Étape 1 : Recherche des meilleurs hyperparamètres.")
 
         with st.expander("**Amélioration B** Score F1-pondéré : 0.79"):
-            st.write("Détails sur l'amélioration du scénario B.")
-            show_image(
-                "Ameb.png",
-                caption="Amélioration B",
-                width=600
-            )
+            show_image("Ameb.png", caption="Amélioration B", width=600)
 
     with tabs[4]:
         st.header("Optimisation")
@@ -530,48 +566,28 @@ elif page == "Machine Learning":
         st.write("Étape 3 : Rééchantillonnage et évaluation")
 
         with st.expander("**SMOTE** Score F1-pondéré : 0.80"):
-            st.write("Détails sur SMOTE.")
-            show_image(
-                "SMOTE.png",
-                caption="SMOTE",
-                width=600
-            )
+            show_image("SMOTE.png", caption="SMOTE", width=600)
 
         with st.expander("**RandomUnderSampler** Score F1-pondéré : 0.74"):
-            st.write("Détails sur RandomUnderSampler.")
-            show_image(
-                "RUS.png",
-                caption="RandomUnderSampler",
-                width=600
-            )
+            show_image("RUS.png", caption="RandomUnderSampler", width=600)
 
 # --------------------------------------------------
 # PAGE DEEP LEARNING
 # --------------------------------------------------
 elif page == "Deep Learning":
-
     st.markdown(
         "<h1 class='red-title center-title'>Deep Learning</h1>",
         unsafe_allow_html=True
     )
 
-    tabs = st.tabs([
-        "Benchmark",
-        "Modèles",
-        "Scores",
-        "Interprétation"
-    ])
+    tabs = st.tabs(["Benchmark", "Modèles", "Scores", "Interprétation"])
 
-    # -----------------------------------------
-    # TAB 1 : Benchmark
-    # -----------------------------------------
     with tabs[0]:
         st.header("Benchmark Rakuten")
-
         st.write("""
         Le challenge Rakuten utilise deux modèles :
 
-        - **Images** : ResNet50 (pré-entraîné ImageNet)
+        - **Images** : ResNet50 pré-entraîné sur ImageNet
         - **Texte** : CNN simplifié
 
         **Scores benchmark :**
@@ -579,88 +595,61 @@ elif page == "Deep Learning":
         - Texte : 0.81
         """)
 
-    # -----------------------------------------
-    # TAB 2 : Modèles
-    # -----------------------------------------
     with tabs[1]:
         st.header("Modèles testés")
 
-        # -------- DNN --------
-        with st.expander("DNN (Dense Neural Network) - F1 : 0.77"):
-            st.write("Modèle dense classique sur features texte/image.")
-
+        with st.expander("DNN - F1 : 0.77"):
             col1, col2 = st.columns(2)
             with col1:
                 show_image("rep_dnn.png", caption="Rapport classification")
             with col2:
                 show_image("mtx_dnn.png", caption="Matrice de confusion")
 
-        # -------- DistilBERT --------
         with st.expander("DistilBERT - F1 : 0.92"):
-            st.write("Modèle NLP avancé basé sur Transformer.")
-
             col1, col2 = st.columns(2)
             with col1:
                 show_image("rep_d_bert.png")
             with col2:
                 show_image("mtx_d_bert.png")
 
-        # -------- EfficientNet + LSTM --------
         with st.expander("EfficientNetB0 + LSTM - F1 : 0.96 ⭐"):
             st.write("""
             Meilleur modèle :
-            - Images → EfficientNet
-            - Texte → LSTM
+            - Images : EfficientNetB0
+            - Texte : LSTM
             """)
-
             col1, col2 = st.columns(2)
             with col1:
                 show_image("rep_eff_lstm.png")
             with col2:
                 show_image("mtx_eff_LSTM.png")
 
-    # -----------------------------------------
-    # TAB 3 : Scores
-    # -----------------------------------------
     with tabs[2]:
         st.header("Synthèse des performances")
-
         st.write("""
         Le modèle **EfficientNetB0 + LSTM** est le meilleur :
 
         - F1-score : **0.96**
-        - > Benchmark (0.81)
-        - > Challenge (0.92)
+        - supérieur au benchmark : 0.81
+        - supérieur au meilleur score Challenge : 0.92
         """)
-
         show_image("score_deep.png", caption="Comparaison des modèles")
 
-    # -----------------------------------------
-    # TAB 4 : Interprétation
-    # -----------------------------------------
     with tabs[3]:
         st.header("Interprétation du modèle")
 
         sub_tabs = st.tabs(["Texte", "Images"])
 
-        # ---- TEXTE ----
         with sub_tabs[0]:
-            st.subheader("Analyse texte")
-
             show_image("txt_inter_1.png", caption="Importance des mots")
-
             col1, col2 = st.columns(2)
             with col1:
                 show_image("txt_inter_2.png")
             with col2:
                 show_image("txt_inter_3.png")
 
-        # ---- IMAGES ----
         with sub_tabs[1]:
-            st.subheader("Analyse images")
-
             show_image("img_inter_1.png", caption="Gradients")
-
             col1, col2 = st.columns(2)
             with col1:
                 show_image("img_inter_2.png")
@@ -669,7 +658,7 @@ elif page == "Deep Learning":
 
             st.info("""
             Le modèle se concentre principalement sur les contours des objets.
-            👉 Limite : difficile pour livres / DVD (formes similaires)
+            Limite : les livres, DVD et magazines ont souvent des formes similaires.
             """)
 
 # --------------------------------------------------
@@ -684,15 +673,10 @@ elif page == "Conclusion":
     st.write("""
     Les choix effectués tout au long du projet ont été guidés par des objectifs de performance et de robustesse.
 
-    Les techniques de réduction de dimension et le choix des algorithmes ont permis d’optimiser les résultats malgré la nature complexe et non structurée des données.
-
     Le modèle hybride alliant **EfficientNetB0 et LSTM** s’est avéré le plus adapté pour la classification des produits e-commerce de Rakuten.
 
-    **En conclusion :**  
-    Objectif atteint ! **Score final : F1-pondéré de 0.96**  
+    **Objectif atteint : score final F1-pondéré de 0.96**  
     Benchmark : 0.81 — Meilleur score Challenge : 0.92
-
-    Très bonne prédiction des catégories avec le jeu d’entraînement fourni.
     """)
 
     tabs = st.tabs(["Limites du modèle", "Préconisations et améliorations"])
@@ -704,113 +688,52 @@ elif page == "Conclusion":
             st.markdown("""
             **Limites du modèle**
 
-            - La traduction du texte a peu d’impact sur les performances, car le français est la langue la plus présente.
-            - Certaines catégories contiennent moins de textes en français.
+            - La traduction du texte a peu d’impact sur les performances.
             - La précision dépend fortement de la qualité de la description textuelle.
-            - Pour les livres, magazines ou DVD, le modèle distingue difficilement les détails fins des images.
-            - Le modèle est moins efficace lorsqu’une catégorie contient des produits très différents.
-            - Le modèle est moins efficace lorsque plusieurs catégories sont visuellement très proches.
+            - Les catégories visuellement proches restent difficiles à distinguer.
+            - Les livres, magazines et DVD ont des formes similaires.
             """)
 
         with col2:
-            img_tabs = st.tabs([
-                "Français 1",
-                "Français 2",
-                "Français 3",
-                "Précision",
-                "Images",
-                "Prédictions"
-            ])
+            img_tabs = st.tabs(["Français 1", "Français 2", "Français 3", "Précision", "Images", "Prédictions"])
 
             with img_tabs[0]:
                 show_image("pie_1.png", caption="Le français en rouge", use_container_width=True)
-
             with img_tabs[1]:
                 show_image("pie_2.png", caption="Le français en rouge", use_container_width=True)
-
             with img_tabs[2]:
                 show_image("pie_3.png", caption="Le français en rouge", use_container_width=True)
-
             with img_tabs[3]:
                 show_image("exemple_text.png", caption="Exemple de désignation", use_container_width=True)
-                st.write("""
-                Dans cet exemple, la variable **designation** n’est pas assez détaillée.
-
-                Le modèle peut donc avoir du mal à identifier correctement l’objet et à choisir la bonne catégorie,
-                notamment lorsqu’il existe plusieurs catégories proches comme les livres, magazines ou DVD.
-                """)
-
             with img_tabs[4]:
                 show_image("img_inter_2.png", caption="Cartes de saillance", width=400)
-
             with img_tabs[5]:
-                show_image(
-                    "mtx_eff_LSTM_rem.png",
-                    caption="Matrice de confusion EfficientNetB0-LSTM",
-                    use_container_width=True
-                )
+                show_image("mtx_eff_LSTM_rem.png", caption="Matrice de confusion EfficientNetB0-LSTM", use_container_width=True)
 
     with tabs[1]:
         st.markdown("""
         **Préconisations et améliorations**
 
-        - **Traduction en français :**  
-          Appliquer la traduction uniquement sur les catégories où le français n’est pas majoritaire.
-
-        - **Rééquilibrage des données :**  
-          Rééquilibrer les données durant le pré-processing afin que chaque catégorie soit représentée plus équitablement.
-
-        - **Augmentation des données :**  
-          Utiliser des techniques d’augmentation d’images : rotation, recadrage, ajout de bruit, transformation de contraste.
-
-        - **Nouveaux modèles Deep Learning :**  
-          Explorer des modèles multimodaux plus récents, plus rapides et moins gourmands en ressources.
-
-        - **Amélioration des descriptions produits :**  
-          Enrichir les descriptions textuelles pour améliorer la discrimination entre catégories proches.
+        - Traduire uniquement les catégories où le français n’est pas majoritaire.
+        - Rééquilibrer les catégories.
+        - Augmenter les données image.
+        - Tester des modèles multimodaux plus récents.
+        - Enrichir les descriptions produits.
         """)
 
 # --------------------------------------------------
-# PAGE RÉSULTATS
+# PAGE DÉMO IA
 # --------------------------------------------------
-elif page == "Résultats":
+elif page == "Démo IA":
     st.markdown(
-        "<h1 class='red-title center-title'>Résultats des modèles</h1>",
+        "<h1 class='red-title center-title'>Démo IA - Classification de produit</h1>",
         unsafe_allow_html=True
     )
 
-    st.write("""
-    Résumé des performances obtenues :
-
-    - Machine Learning : meilleur score autour de 0.80
-    - DistilBERT : score F1 pondéré autour de 0.92
-    - EfficientNetB0-LSTM : score F1 pondéré autour de 0.96
-    """)
-
-    show_image(
-        "score_deep.png",
-        caption="Synthèse des scores de F1 pondéré",
-        use_container_width=True
-    )
-
-# --------------------------------------------------
-# PAGE DÉMO
-# --------------------------------------------------
-elif page == "Démo":
-    st.markdown(
-        "<h1 class='red-title center-title'>Classification de produit</h1>",
-        unsafe_allow_html=True
-    )
-
-    tab1, tab2 = st.tabs(['Jeu de données "Test" Rakuten', "Autres données"])
+    tab1, tab2 = st.tabs(['Jeu de données "Test" Rakuten', "Prédiction IA"])
 
     with tab1:
         st.header('Jeu de données "Test" Rakuten')
-
-        st.write("""
-        Ce tableau contient les 20 premières lignes du DataFrame final et affiche les codes des catégories d'objets prédits
-        du jeu de données "Test" Rakuten.
-        """)
 
         prediction_file = DATA_DIR / "df_prediction_final.csv"
 
@@ -829,28 +752,65 @@ elif page == "Démo":
             st.error("Fichier manquant : data/df_prediction_final.csv")
 
     with tab2:
-        st.header("Autres données")
-
-        st.warning("""
-        La prédiction par texte + image sera ajoutée dans une étape suivante.
-
-        Les fichiers modèle `.keras` et `.pkl` sont trop lourds pour GitHub classique.
-        Ils pourront être stockés sur Hugging Face dans une prochaine étape.
-        """)
+        st.header("Prédiction sur un nouveau produit")
 
         st.write("""
-        **Limitations de l'outil**
-
-        Cet outil a été conçu pour répondre à la demande du Challenge Rakuten.
-        Les catégories prédites sont celles définies dans le jeu de données Y_train.
+        Entrez une description produit et ajoutez une image.
+        Le modèle prédit ensuite la catégorie Rakuten la plus probable.
         """)
 
-        category_file = DATA_DIR / "categories_prdtypecode.csv"
+        try:
+            tokenizer, label_encoder, model, categories = load_demo_resources()
+            st.success("Modèle IA chargé avec succès.")
 
-        if category_file.exists():
-            df_categorie = load_local_csv(category_file, sep=";")
+            description_text = st.text_input("Entrez la description du produit :")
 
-            st.subheader("Rappel des catégories")
+            uploaded_file = st.file_uploader(
+                "Choisissez une image",
+                type=["jpg", "jpeg", "png"]
+            )
+
+            if st.button("Prédire"):
+                if description_text and uploaded_file:
+                    text_data = preprocess_text(tokenizer, description_text)
+                    image_data, image_path = preprocess_uploaded_image(uploaded_file)
+
+                    predictions = model.predict([text_data, image_data])
+                    predicted_class = np.argmax(predictions, axis=1)[0]
+                    predicted_label = label_encoder.inverse_transform([predicted_class])[0]
+
+                    category_row = categories[categories["code type"] == predicted_label]
+                    category_name = (
+                        category_row["désignation de catégorie"].values[0]
+                        if not category_row.empty
+                        else "Inconnue"
+                    )
+
+                    confidence = float(np.max(predictions)) * 100
+
+                    img = Image.open(image_path)
+
+                    st.image(
+                        img,
+                        caption=f"Prédiction : {predicted_label} - {category_name}",
+                        width=300
+                    )
+
+                    st.success(f"Catégorie prédite : {predicted_label} - {category_name}")
+                    st.info(f"Confiance du modèle : {confidence:.2f} %")
+
+                else:
+                    st.warning("Veuillez entrer une description et télécharger une image.")
+
+        except Exception as e:
+            st.error(f"Erreur lors du chargement ou de la prédiction : {e}")
+
+        st.divider()
+
+        st.subheader("Rappel des catégories")
+
+        try:
+            df_categorie = load_remote_csv("categories_prdtypecode.csv", sep=";")
             st.data_editor(
                 df_categorie,
                 column_config={
@@ -858,8 +818,8 @@ elif page == "Démo":
                 },
                 hide_index=True,
             )
-        else:
-            st.error("Fichier manquant : data/categories_prdtypecode.csv")
+        except Exception as e:
+            st.warning(f"Impossible de charger les catégories : {e}")
 
 # --------------------------------------------------
 # BAS DE SIDEBAR

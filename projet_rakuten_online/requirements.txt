@@ -6,3 +6,6 @@ seaborn
 pillow
 plotly
 scikit-learn
+tensorflow
+pillow
+requests
