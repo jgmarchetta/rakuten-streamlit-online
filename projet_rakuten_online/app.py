@@ -146,6 +146,7 @@ pages = [
     "Présentation",
     "Données",
     "Pré-processing",
+    "Machine Learning",
     "Résultats",
     "Démo"
 ]
@@ -429,6 +430,118 @@ elif page == "Pré-processing":
 
         **Scénario E :** Même vectorisation que le scénario B, avec traduction du texte vers la langue majoritaire : le français.
         """)
+
+# --------------------------------------------------
+# PAGE MACHINE LEARNING
+# --------------------------------------------------
+elif page == "Machine Learning":
+    st.markdown(
+        "<h1 class='red-title center-title'>Machine Learning</h1>",
+        unsafe_allow_html=True
+    )
+
+    tabs = st.tabs([
+        "Scénario A",
+        "Scénario B",
+        "Scénario E",
+        "Amélioration",
+        "Optimisation"
+    ])
+
+    def add_model_expanders(images):
+        for model_name, infos in images.items():
+            with st.expander(f"**{model_name}** Score F1-pondéré : {infos['score']}"):
+                st.write(f"Détails sur le modèle {model_name}.")
+                show_image(
+                    infos["path"],
+                    caption=f"{model_name} - score F1 pondéré : {infos['score']}",
+                    use_container_width=True
+                )
+
+    images_scenario_A = {
+        "XGboost": {"path": "A_XGboost.png", "score": 0.73},
+        "SGD Classifier": {"path": "A_SGD Classifier.png", "score": 0.68},
+        "Random Forest": {"path": "A_Random Forest.png", "score": 0.65},
+        "Voting Classifier Soft": {"path": "A_VCS.png", "score": 0.73},
+        "Voting Classifier Hard": {"path": "A_VCH.png", "score": 0.72},
+        "Naive Bayes Gaussien": {"path": "A_NBG.png", "score": 0.46},
+    }
+
+    images_scenario_B = {
+        "XGboost": {"path": "B_XGboost.png", "score": 0.77},
+        "SGD Classifier": {"path": "B_SGD Classifier.png", "score": 0.62},
+        "Random Forest": {"path": "B_Random Forest.png", "score": 0.76},
+        "Voting Classifier Soft": {"path": "B_VCS.png", "score": 0.77},
+        "Voting Classifier Hard": {"path": "B_VCH.png", "score": 0.76},
+        "Naive Bayes Gaussien": {"path": "B_NBG.png", "score": 0.51},
+    }
+
+    images_scenario_E = {
+        "XGboost": {"path": "E_XGboost.png", "score": 0.76},
+        "SGD Classifier": {"path": "E_SGD Classifier.png", "score": 0.58},
+        "Random Forest": {"path": "E_Random Forest.png", "score": 0.75},
+        "Voting Classifier Soft": {"path": "E_VCS.png", "score": 0.75},
+        "Voting Classifier Hard": {"path": "E_VCH.png", "score": 0.74},
+        "Naive Bayes Gaussien": {"path": "E_NBG.png", "score": 0.50},
+    }
+
+    with tabs[0]:
+        st.header("Scénario A")
+        st.write("""
+        Vectorisation des images par CNN, vectorisation du texte avec SpaCy sans traduction de texte.
+        """)
+        st.write("Les modèles :")
+        add_model_expanders(images_scenario_A)
+
+    with tabs[1]:
+        st.header("Scénario B")
+        st.write("""
+        Vectorisation des images par CNN, vectorisation du texte avec TF-IDF, après tokenisation,
+        lemmatisation, application des stop-words, sans traduction de texte et réduction par TruncatedSVD.
+        """)
+        st.write("Les modèles :")
+        add_model_expanders(images_scenario_B)
+
+    with tabs[2]:
+        st.header("Scénario E")
+        st.write("""
+        Même vectorisation que le scénario B, avec traduction du texte dans la langue majoritaire : le français.
+        """)
+        st.write("Les modèles :")
+        add_model_expanders(images_scenario_E)
+
+    with tabs[3]:
+        st.header("Amélioration")
+        st.write("Étape 1 : Recherche des meilleurs hyperparamètres.")
+
+        with st.expander("**Amélioration B** Score F1-pondéré : 0.79"):
+            st.write("Détails sur l'amélioration du scénario B.")
+            show_image(
+                "ameb.png",
+                caption="Amélioration B",
+                width=600
+            )
+
+    with tabs[4]:
+        st.header("Optimisation")
+        st.write("Étape 2 : Validation croisée")
+        st.write("Étape 3 : Rééchantillonnage et évaluation")
+
+        with st.expander("**SMOTE** Score F1-pondéré : 0.80"):
+            st.write("Détails sur SMOTE.")
+            show_image(
+                "SMOTE.png",
+                caption="SMOTE",
+                width=600
+            )
+
+        with st.expander("**RandomUnderSampler** Score F1-pondéré : 0.74"):
+            st.write("Détails sur RandomUnderSampler.")
+            show_image(
+                "RUS.png",
+                caption="RandomUnderSampler",
+                width=600
+            )
 
 # --------------------------------------------------
 # PAGE RÉSULTATS
