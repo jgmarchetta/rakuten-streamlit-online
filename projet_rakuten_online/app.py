@@ -1,36 +1,138 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
 from pathlib import Path
 
+# --------------------------------------------------
+# CONFIGURATION DES CHEMINS
+# --------------------------------------------------
 BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
 IMG_DIR = BASE_DIR / "assets" / "images"
 
-@st.cache_data
-def load_data(csv_path, sep=","):
-    return pd.read_csv(csv_path, sep=sep)
-
+# --------------------------------------------------
+# CONFIGURATION PAGE
+# --------------------------------------------------
 st.set_page_config(
     page_title="Projet Rakuten - Classification Multimodale",
     layout="wide"
 )
 
+# --------------------------------------------------
+# CSS
+# --------------------------------------------------
 st.markdown("""
 <style>
+body, h1, h2, h3, h4, h5, h6, p, div, span, li, a {
+    font-family: Arial, sans-serif;
+}
 .red-title {
     color: #BF0000;
 }
 .center-title {
     text-align: center;
 }
+.small-title {
+    font-size: 14px;
+    font-weight: bold;
+}
+.reduced-spacing p {
+    margin-bottom: 5px;
+    margin-top: 5px;
+}
 </style>
 """, unsafe_allow_html=True)
 
-st.sidebar.image(
-    "https://fr.shopping.rakuten.com/visuels/0_content_square/autres/rakuten-logo6.svg",
-    use_container_width=True
-)
+# --------------------------------------------------
+# FONCTIONS
+# --------------------------------------------------
+@st.cache_data
+def load_data(csv_path, sep=","):
+    return pd.read_csv(csv_path, sep=sep)
+
+
+def show_image(filename, caption=None, width=None, use_container_width=False):
+    image_path = IMG_DIR / filename
+    if image_path.exists():
+        st.image(
+            str(image_path),
+            caption=caption,
+            width=width,
+            use_container_width=use_container_width
+        )
+    else:
+        st.warning(f"Image manquante : {filename}")
+
+
+def plot_missing_values_heatmap(df):
+    fig, ax = plt.subplots(figsize=(8, 4))
+    sns.heatmap(
+        df.isnull(),
+        cmap=sns.color_palette(["#828282", "#BF0000"]),
+        cbar=False,
+        ax=ax
+    )
+    st.pyplot(fig)
+
+
+def plot_nan_percentage(df, column_name):
+    if column_name not in df.columns:
+        st.warning(f"Colonne manquante : {column_name}")
+        return
+
+    nan_percentage = (df[column_name].isnull().sum() / len(df)) * 100
+    non_nan_percentage = 100 - nan_percentage
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.barh(
+        ["Valeurs non-NaN", "NaN"],
+        [non_nan_percentage, nan_percentage],
+        color=["#004BAA", "#BF0000"]
+    )
+    ax.set_xlim(0, 100)
+
+    for i, v in enumerate([non_nan_percentage, nan_percentage]):
+        ax.text(v + 1, i, f"{v:.2f}%", color="black", va="center")
+
+    st.pyplot(fig)
+
+
+def plot_duplicate_percentage(df, column_name):
+    if column_name not in df.columns:
+        st.warning(f"Colonne manquante : {column_name}")
+        return
+
+    duplicate_counts = df[column_name].duplicated().value_counts()
+
+    unique_count = duplicate_counts.get(False, 0)
+    duplicate_count = duplicate_counts.get(True, 0)
+
+    unique_percentage = (unique_count / len(df)) * 100
+    duplicate_percentage = (duplicate_count / len(df)) * 100
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.barh(
+        ["Valeurs uniques", "Doublons"],
+        [unique_percentage, duplicate_percentage],
+        color=["#004BAA", "#BF0000"]
+    )
+    ax.set_xlim(0, 100)
+
+    for i, v in enumerate([unique_percentage, duplicate_percentage]):
+        ax.text(v + 1, i, f"{v:.2f}%", color="black", va="center")
+
+    st.pyplot(fig)
+
+
+# --------------------------------------------------
+# SIDEBAR
+# --------------------------------------------------
+st.sidebar.markdown("""
+<a href="https://challengedata.ens.fr/participants/challenges/35/" target="_blank">
+    <img src="https://fr.shopping.rakuten.com/visuels/0_content_square/autres/rakuten-logo6.svg" style="width: 100%;">
+</a>
+""", unsafe_allow_html=True)
 
 st.sidebar.title("Sommaire")
 
@@ -43,12 +145,9 @@ pages = [
 
 page = st.sidebar.radio("Aller vers :", pages)
 
-
-@st.cache_data
-def load_csv(path, sep=","):
-    return pd.read_csv(path, sep=sep)
-
-
+# --------------------------------------------------
+# PAGE PRÉSENTATION
+# --------------------------------------------------
 if page == "Présentation":
     st.markdown(
         "<h1 class='red-title center-title'>Projet Rakuten - Classification Multimodale</h1>",
@@ -60,23 +159,18 @@ if page == "Présentation":
     with tab1:
         st.write("""
         Dans le cadre d'un challenge organisé par l'ENS et de notre formation Data Scientist au sein de DataScientest,
-        nous avons travaillé sur la classification de produits à grande échelle.
+        nous avons pu travailler sur la classification de produits à grande échelle.
 
         Le projet vise à prédire le type de chaque produit tel que défini dans le catalogue de Rakuten France.
         """)
 
-        image_path = IMG_DIR / "rakuten_image_entreprise.jpg"
-
-        if image_path.exists():
-            col1, col2, col3 = st.columns(3)
-            with col2:
-                st.image(
-                    str(image_path),
-                    caption="Siège social de Rakuten à Futakotamagawa, Tokyo",
-                    use_container_width=True
-                )
-        else:
-            st.warning("Image manquante : rakuten_image_entreprise.jpg")
+        col1, col2, col3 = st.columns(3)
+        with col2:
+            show_image(
+                "rakuten_image_entreprise.jpg",
+                caption="Siège social de Rakuten à Futakotamagawa, Tokyo",
+                use_container_width=True
+            )
 
         st.write("""
         **Rakuten, Inc. (Rakuten Kabushiki-gaisha)**  
@@ -87,141 +181,206 @@ if page == "Présentation":
 
     with tab2:
         st.write("""
-        **Objectif du projet**
+        **Objectif du projet**  
 
-        L’objectif est la classification multimodale à grande échelle des produits.
+        L’objectif du projet est la classification multimodale à grande échelle des données de produits en codes de types de produits.
 
-        Il s’agit de prédire le code type produit à partir de deux sources :
-
-        - les données textuelles,
-        - les images des produits.
+        Il s’agit de prédire le code type des produits à partir de données textuelles et images.
         """)
 
-        image_path = IMG_DIR / "objectif_projet.png"
+        show_image(
+            "objectif_projet.png",
+            caption="Objectif du projet",
+            use_container_width=True
+        )
 
-        if image_path.exists():
-            st.image(
-                str(image_path),
-                caption="Objectif du projet",
-                use_container_width=True
-            )
-        else:
-            st.warning("Image manquante : objectif_projet.png")
-
-
+# --------------------------------------------------
+# PAGE DONNÉES
+# --------------------------------------------------
 elif page == "Données":
     st.markdown(
         "<h1 class='red-title center-title'>Exploration des données</h1>",
         unsafe_allow_html=True
     )
 
-    st.write("""
-    Le projet Rakuten repose sur des données textuelles, des images produits et une variable cible correspondant au type de produit.
-    Dans cette version online, nous affichons les fichiers disponibles dans le dépôt GitHub.
-    """)
+    st.write("Le projet comporte 3 jeux de données textuelles et 1 jeu de données images.")
 
-    tab1, tab2, tab3 = st.tabs([
-        "Prédictions",
-        "Catégories",
-        "Visualisations"
-    ])
+    col1, col2, col3 = st.columns(3)
+    with col2:
+        st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
+        st.markdown("""
+        - X_train
+        - X_test
+        - Y_train
+        - Fichier Images scindé en 2 fichiers image_train & image_test
+        """)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    # -----------------------------
-    # TAB 1 : Prédictions
-    # -----------------------------
-    with tab1:
-        st.subheader("Jeu de prédictions final")
+    selected_dataset = st.selectbox(
+        "**Sélectionnez le jeu de données :**",
+        ["X_train", "X_test", "Y_train", "Fichier Images Train"]
+    )
 
-        prediction_file = DATA_DIR / "df_prediction_final.csv"
+    x_train_file = DATA_DIR / "X_train_update.csv"
+    x_test_file = DATA_DIR / "X_test_update.csv"
+    y_train_file = DATA_DIR / "Y_train_CVw08PX.csv"
 
-        if prediction_file.exists():
-            df_prediction = load_data(prediction_file)
+    df_train = load_data(x_train_file) if x_train_file.exists() else None
+    df_test = load_data(x_test_file) if x_test_file.exists() else None
+    df_target = load_data(y_train_file) if y_train_file.exists() else None
 
-            st.write("Aperçu des 20 premières lignes :")
-            st.dataframe(df_prediction.head(20), use_container_width=True)
+    if selected_dataset == "X_train":
+        st.write("Vous avez sélectionné le jeu de données X_train.")
 
-            st.write("Dimensions du fichier :")
-            st.info(f"{df_prediction.shape[0]} lignes et {df_prediction.shape[1]} colonnes")
+        if df_train is not None:
+            st.data_editor(
+                df_train.head(),
+                column_config={
+                    "productid": st.column_config.NumberColumn(format="%d"),
+                    "imageid": st.column_config.NumberColumn(format="%d")
+                },
+                hide_index=True,
+            )
 
-            numeric_columns = df_prediction.select_dtypes(include=["int64", "float64"]).columns.tolist()
+            show_image(
+                "image_variable X_train_file.png",
+                caption="Schéma des variables du jeu de données X_train",
+                width=1000
+            )
 
-            if len(numeric_columns) > 0:
-                selected_col = st.selectbox(
-                    "Sélectionnez une colonne numérique à visualiser :",
-                    numeric_columns
+            col1, col2 = st.columns(2)
+            col3, col4 = st.columns(2)
+
+            with col1:
+                plot_missing_values_heatmap(df_train)
+
+            with col2:
+                plot_nan_percentage(df_train, "description")
+
+            with col3:
+                plot_duplicate_percentage(df_train, "designation")
+
+            with col4:
+                show_image(
+                    "histogramme_langues_X_train.png",
+                    use_container_width=True
+                )
+        else:
+            st.error("Fichier manquant : data/X_train_update.csv")
+
+    elif selected_dataset == "X_test":
+        st.write("Vous avez sélectionné le jeu de données X_test.")
+
+        if df_test is not None:
+            st.data_editor(
+                df_test.head(),
+                column_config={
+                    "productid": st.column_config.NumberColumn(format="%d"),
+                    "imageid": st.column_config.NumberColumn(format="%d")
+                },
+                hide_index=True,
+            )
+
+            show_image(
+                "image variable X_test_file.png",
+                caption="Schéma des variables du jeu de données X_test",
+                width=1000
+            )
+
+            col1, col2 = st.columns(2)
+            col3, col4 = st.columns(2)
+
+            with col1:
+                plot_missing_values_heatmap(df_test)
+
+            with col2:
+                plot_nan_percentage(df_test, "description")
+
+            with col3:
+                plot_duplicate_percentage(df_test, "designation")
+
+            with col4:
+                show_image(
+                    "histogramme_langues_X_test.png",
+                    use_container_width=True
+                )
+        else:
+            st.error("Fichier manquant : data/X_test_update.csv")
+
+    elif selected_dataset == "Y_train":
+        st.write("Vous avez sélectionné le jeu de données Y_train.")
+
+        if df_target is not None:
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.dataframe(df_target.head(), use_container_width=True)
+
+            with col2:
+                show_image(
+                    "image_variable Y_train_file.png",
+                    caption="Schéma des variables du jeu de données Y_train",
+                    use_container_width=True
                 )
 
-                fig, ax = plt.subplots(figsize=(10, 4))
-                df_prediction[selected_col].value_counts().head(20).plot(kind="bar", ax=ax)
-                ax.set_title(f"Répartition de la colonne : {selected_col}")
-                ax.set_xlabel(selected_col)
-                ax.set_ylabel("Nombre d'occurrences")
-                st.pyplot(fig)
-            else:
-                st.warning("Aucune colonne numérique disponible pour générer un graphique.")
-        else:
-            st.error("Fichier manquant : data/df_prediction_final.csv")
+            col3, col4 = st.columns(2)
 
-    # -----------------------------
-    # TAB 2 : Catégories
-    # -----------------------------
-    with tab2:
-        st.subheader("Catégories de produits")
+            with col3:
+                plot_missing_values_heatmap(df_target)
 
-        category_file = DATA_DIR / "categories_prdtypecode.csv"
+            with col4:
+                show_image(
+                    "visualisation_pdt_categorie.png",
+                    caption="Visualisation du nombre de produits par catégorie",
+                    use_container_width=True
+                )
 
-        if category_file.exists():
-            df_categories = pd.read_csv(category_file, sep=";")
-
-            st.write("Liste des catégories disponibles :")
-            st.dataframe(df_categories, use_container_width=True)
-
-            st.write("Nombre de catégories :")
-            st.info(f"{df_categories.shape[0]} catégories")
-
-            if "code type" in df_categories.columns:
-                fig, ax = plt.subplots(figsize=(10, 4))
-                df_categories["code type"].astype(str).value_counts().plot(kind="bar", ax=ax)
-                ax.set_title("Répartition des codes catégories")
-                ax.set_xlabel("Code type")
-                ax.set_ylabel("Nombre")
-                st.pyplot(fig)
-        else:
-            st.error("Fichier manquant : data/categories_prdtypecode.csv")
-
-    # -----------------------------
-    # TAB 3 : Visualisations
-    # -----------------------------
-    with tab3:
-        st.subheader("Images et visualisations du projet")
-
-        images_to_show = {
-            "Objectif du projet": "objectif_projet.png",
-            "Siège Rakuten": "rakuten_image_entreprise.jpg",
-            "Synthèse des scores Deep Learning": "score_deep.png",
-            "Catégories de produits": "categorie_produit.png",
-            "Visualisation produits par catégorie": "visualisation_pdt_categorie.png",
-            "Schéma X_train": "image_variable X_train_file.png",
-            "Schéma Y_train": "image_variable Y_train_file.png",
-        }
-
-        selected_image_label = st.selectbox(
-            "Sélectionnez une visualisation :",
-            list(images_to_show.keys())
-        )
-
-        image_name = images_to_show[selected_image_label]
-        image_path = IMG_DIR / image_name
-
-        if image_path.exists():
-            st.image(
-                str(image_path),
-                caption=selected_image_label,
-                use_container_width=True
+            show_image(
+                "categorie_produit.png",
+                caption="27 catégories de produits",
+                width=500
             )
         else:
-            st.warning(f"Image manquante dans assets/images/ : {image_name}")
+            st.error("Fichier manquant : data/Y_train_CVw08PX.csv")
 
+    elif selected_dataset == "Fichier Images Train":
+        st.write("Vous avez sélectionné le fichier d'images du jeu de données images.")
+        st.write("Le jeu de données images comporte 2 fichiers : image_train et image_test.")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            show_image(
+                "visualisation_fichier_image.png",
+                caption="Visualisation du fichier images_train",
+                use_container_width=True
+            )
+
+        with col2:
+            show_image(
+                "dataframe_images_train.png",
+                caption="DataFrame du fichier images_train",
+                use_container_width=True
+            )
+
+        show_rapprochement = st.checkbox("**Rapprochement Textes-Images-Cible**")
+
+        if show_rapprochement:
+            st.markdown(
+                "<h2 style='text-align: center; color: #004BAA;'>Rapprochement Textes - Images - Variable Cible</h2>",
+                unsafe_allow_html=True
+            )
+            st.write("Voici un exemple de rapprochement entre textes, images et variable cible.")
+
+            show_image(
+                "rapprochement texte_image_cible.png",
+                caption="Rapprochement texte/image & catégorie de produit",
+                width=1000
+            )
+
+# --------------------------------------------------
+# PAGE RÉSULTATS
+# --------------------------------------------------
 elif page == "Résultats":
     st.markdown(
         "<h1 class='red-title center-title'>Résultats des modèles</h1>",
@@ -230,37 +389,108 @@ elif page == "Résultats":
 
     st.write("""
     Résumé des performances obtenues :
-    
+
     - Machine Learning : meilleur score autour de 0.80
     - DistilBERT : score F1 pondéré autour de 0.92
     - EfficientNetB0-LSTM : score F1 pondéré autour de 0.96
     """)
 
-    image_path = ASSETS_DIR / "score_deep.png"
+    show_image(
+        "score_deep.png",
+        caption="Synthèse des scores de F1 pondéré",
+        use_container_width=True
+    )
 
-    if image_path.exists():
-        st.image(str(image_path), caption="Synthèse des scores", use_container_width=True)
-    else:
-        st.info("Ajoute score_deep.png dans assets/images/ pour afficher le graphique.")
-
-
+# --------------------------------------------------
+# PAGE DÉMO
+# --------------------------------------------------
 elif page == "Démo":
     st.markdown(
-        "<h1 class='red-title center-title'>Démo de classification</h1>",
+        "<h1 class='red-title center-title'>Classification de produit</h1>",
         unsafe_allow_html=True
     )
 
-    st.warning("""
-    La démo de prédiction sera ajoutée dans une deuxième étape.
-    
-    Pour l’instant, on vérifie d’abord que l’application se déploie correctement en ligne.
-    """)
+    tab1, tab2 = st.tabs(['Jeu de données "Test" Rakuten', "Autres données"])
 
-    category_file = DATA_DIR / "categories_prdtypecode.csv"
+    with tab1:
+        st.header('Jeu de données "Test" Rakuten')
 
-    if category_file.exists():
-        df_cat = load_csv(category_file, sep=";")
-        st.subheader("Catégories disponibles")
-        st.dataframe(df_cat, use_container_width=True)
-    else:
-        st.info("Ajoute categories_prdtypecode.csv dans data/ pour afficher les catégories.")
+        st.write("""
+        Ce tableau contient les 20 premières lignes du DataFrame final et affiche les codes des catégories d'objets prédits
+        du jeu de données "Test" Rakuten.
+        """)
+
+        prediction_file = DATA_DIR / "df_prediction_final.csv"
+
+        if prediction_file.exists():
+            df_prediction_final = load_data(prediction_file)
+
+            st.data_editor(
+                df_prediction_final.head(20),
+                column_config={
+                    "Code catégorie prédite": st.column_config.NumberColumn(format="%d"),
+                    "index": st.column_config.NumberColumn(format="%d")
+                },
+                hide_index=True,
+            )
+        else:
+            st.error("Fichier manquant : data/df_prediction_final.csv")
+
+    with tab2:
+        st.header("Autres données")
+
+        st.warning("""
+        La prédiction par texte + image sera ajoutée dans une étape suivante.
+        Les fichiers modèle `.keras` et `.pkl` sont trop lourds pour GitHub classique.
+        """)
+
+        st.write("""
+        **Limitations de l'outil**  
+
+        Cet outil a été conçu pour répondre à la demande du Challenge Rakuten.
+        Les catégories prédites sont celles définies dans le jeu de données Y_train.
+        """)
+
+        category_file = DATA_DIR / "categories_prdtypecode.csv"
+
+        if category_file.exists():
+            df_categorie = load_data(category_file, sep=";")
+
+            st.subheader("Rappel des catégories")
+            st.data_editor(
+                df_categorie,
+                column_config={
+                    "code type": st.column_config.NumberColumn(format="%d")
+                },
+                hide_index=True,
+            )
+        else:
+            st.error("Fichier manquant : data/categories_prdtypecode.csv")
+
+# --------------------------------------------------
+# BAS DE SIDEBAR
+# --------------------------------------------------
+for _ in range(2):
+    st.sidebar.text("")
+
+st.sidebar.markdown("""
+<div class="reduced-spacing">
+    <p class="small-title">Auteurs:</p>
+    <p><a href="https://www.linkedin.com/in/labordecaroline/" target="_blank">Caroline LABORDE</a></p>
+    <p><a href="https://www.linkedin.com/in/soulaiman-cheddadi/" target="_blank">Soulaiman CHEDDADI</a></p>
+    <p><a href="https://www.linkedin.com/in/jean-gabrielmarchetta/" target="_blank">Jean-Gabriel MARCHETTA</a></p>
+    <p class="small-title">Mentor:</p>
+    <p>Eliott DOUIEB</p>
+</div>
+""", unsafe_allow_html=True)
+
+st.sidebar.text("")
+st.sidebar.text("")
+
+st.sidebar.markdown("""
+<a href="https://datascientest.com/" target="_blank">
+    <img src="https://datascientest.com/wp-content/uploads/2022/03/logo-2021.png" style="width: 100%;">
+</a>
+""", unsafe_allow_html=True)
+
+st.sidebar.text("Datascientist - Bootcamp mars 2024")
