@@ -54,7 +54,7 @@ body, h1, h2, h3, h4, h5, h6, p, div, span, li, a {
 """, unsafe_allow_html=True)
 
 # --------------------------------------------------
-# FONCTIONS DATA
+# FONCTIONS DATA / IMAGES
 # --------------------------------------------------
 @st.cache_data(show_spinner="Chargement des données locales...")
 def load_local_csv(path, sep=","):
@@ -66,11 +66,18 @@ def load_remote_csv(filename, sep=","):
     return pd.read_csv(HF_BASE_URL + filename, sep=sep)
 
 
-def show_image(filename, caption=None, width=None, use_container_width=False):
+@st.cache_data
+def load_image_cached(image_path):
+    return Image.open(image_path)
+
+
+def show_image(filename, caption=None, width=600, use_container_width=False):
     image_path = IMG_DIR / filename
+
     if image_path.exists():
+        img = load_image_cached(image_path)
         st.image(
-            str(image_path),
+            img,
             caption=caption,
             width=width,
             use_container_width=use_container_width
@@ -143,12 +150,15 @@ def plot_duplicate_percentage(df, column_name):
 # --------------------------------------------------
 def download_from_hf(filename):
     local_path = MODEL_DIR / filename
+
     if not local_path.exists():
         with st.spinner(f"Téléchargement de {filename}..."):
             response = requests.get(HF_BASE_URL + filename)
             response.raise_for_status()
+
             with open(local_path, "wb") as f:
                 f.write(response.content)
+
     return local_path
 
 
@@ -238,7 +248,7 @@ if page == "Présentation":
             show_image(
                 "rakuten_image_entreprise.jpg",
                 caption="Siège social de Rakuten à Futakotamagawa, Tokyo",
-                use_container_width=True
+                width=550
             )
 
         st.write("""
@@ -263,7 +273,7 @@ if page == "Présentation":
         show_image(
             "objectif_projet.png",
             caption="Objectif du projet",
-            use_container_width=True
+            width=1000
         )
 
 # --------------------------------------------------
@@ -329,7 +339,7 @@ elif page == "Données":
                 plot_duplicate_percentage(df_train, "designation")
 
             with col4:
-                show_image("histogramme_langues_X_train.png", use_container_width=True)
+                show_image("histogramme_langues_X_train.png", width=650)
 
         except Exception as e:
             st.error(f"Erreur lors du chargement de X_train : {e}")
@@ -369,7 +379,7 @@ elif page == "Données":
                 plot_duplicate_percentage(df_test, "designation")
 
             with col4:
-                show_image("histogramme_langues_X_test.png", use_container_width=True)
+                show_image("histogramme_langues_X_test.png", width=650)
 
         except Exception as e:
             st.error(f"Erreur lors du chargement de X_test : {e}")
@@ -390,7 +400,7 @@ elif page == "Données":
                 show_image(
                     "image_variable Y_train_file.png",
                     caption="Schéma des variables du jeu de données Y_train",
-                    use_container_width=True
+                    width=700
                 )
 
             col3, col4 = st.columns(2)
@@ -402,7 +412,7 @@ elif page == "Données":
                 show_image(
                     "visualisation_pdt_categorie.png",
                     caption="Visualisation du nombre de produits par catégorie",
-                    use_container_width=True
+                    width=650
                 )
 
             show_image(
@@ -424,14 +434,14 @@ elif page == "Données":
             show_image(
                 "visualisation_fichier_image.png",
                 caption="Visualisation du fichier images_train",
-                use_container_width=True
+                width=650
             )
 
         with col2:
             show_image(
                 "dataframe_images_train.png",
                 caption="DataFrame du fichier images_train",
-                use_container_width=True
+                width=650
             )
 
         show_rapprochement = st.checkbox("**Rapprochement Textes-Images-Cible**")
@@ -505,7 +515,7 @@ elif page == "Machine Learning":
                 show_image(
                     infos["path"],
                     caption=f"{model_name} - score F1 pondéré : {infos['score']}",
-                    use_container_width=True
+                    width=1100
                 )
 
     images_scenario_A = {
@@ -601,16 +611,16 @@ elif page == "Deep Learning":
         with st.expander("DNN - F1 : 0.77"):
             col1, col2 = st.columns(2)
             with col1:
-                show_image("rep_dnn.png", caption="Rapport classification")
+                show_image("rep_dnn.png", caption="Rapport classification", width=450)
             with col2:
-                show_image("mtx_dnn.png", caption="Matrice de confusion")
+                show_image("mtx_dnn.png", caption="Matrice de confusion", width=450)
 
         with st.expander("DistilBERT - F1 : 0.92"):
             col1, col2 = st.columns(2)
             with col1:
-                show_image("rep_d_bert.png")
+                show_image("rep_d_bert.png", width=450)
             with col2:
-                show_image("mtx_d_bert.png")
+                show_image("mtx_d_bert.png", width=450)
 
         with st.expander("EfficientNetB0 + LSTM - F1 : 0.96 ⭐"):
             st.write("""
@@ -620,9 +630,9 @@ elif page == "Deep Learning":
             """)
             col1, col2 = st.columns(2)
             with col1:
-                show_image("rep_eff_lstm.png")
+                show_image("rep_eff_lstm.png", width=450)
             with col2:
-                show_image("mtx_eff_LSTM.png")
+                show_image("mtx_eff_LSTM.png", width=450)
 
     with tabs[2]:
         st.header("Synthèse des performances")
@@ -633,7 +643,7 @@ elif page == "Deep Learning":
         - supérieur au benchmark : 0.81
         - supérieur au meilleur score Challenge : 0.92
         """)
-        show_image("score_deep.png", caption="Comparaison des modèles")
+        show_image("score_deep.png", caption="Comparaison des modèles", width=900)
 
     with tabs[3]:
         st.header("Interprétation du modèle")
@@ -641,20 +651,20 @@ elif page == "Deep Learning":
         sub_tabs = st.tabs(["Texte", "Images"])
 
         with sub_tabs[0]:
-            show_image("txt_inter_1.png", caption="Importance des mots")
+            show_image("txt_inter_1.png", caption="Importance des mots", width=500)
             col1, col2 = st.columns(2)
             with col1:
-                show_image("txt_inter_2.png")
+                show_image("txt_inter_2.png", width=450)
             with col2:
-                show_image("txt_inter_3.png")
+                show_image("txt_inter_3.png", width=450)
 
         with sub_tabs[1]:
-            show_image("img_inter_1.png", caption="Gradients")
+            show_image("img_inter_1.png", caption="Gradients", width=450)
             col1, col2 = st.columns(2)
             with col1:
-                show_image("img_inter_2.png")
+                show_image("img_inter_2.png", width=450)
             with col2:
-                show_image("img_inter_3.png")
+                show_image("img_inter_3.png", width=450)
 
             st.info("""
             Le modèle se concentre principalement sur les contours des objets.
@@ -698,17 +708,17 @@ elif page == "Conclusion":
             img_tabs = st.tabs(["Français 1", "Français 2", "Français 3", "Précision", "Images", "Prédictions"])
 
             with img_tabs[0]:
-                show_image("pie_1.png", caption="Le français en rouge", use_container_width=True)
+                show_image("pie_1.png", caption="Le français en rouge", width=520)
             with img_tabs[1]:
-                show_image("pie_2.png", caption="Le français en rouge", use_container_width=True)
+                show_image("pie_2.png", caption="Le français en rouge", width=520)
             with img_tabs[2]:
-                show_image("pie_3.png", caption="Le français en rouge", use_container_width=True)
+                show_image("pie_3.png", caption="Le français en rouge", width=520)
             with img_tabs[3]:
-                show_image("exemple_text.png", caption="Exemple de désignation", use_container_width=True)
+                show_image("exemple_text.png", caption="Exemple de désignation", width=520)
             with img_tabs[4]:
-                show_image("img_inter_2.png", caption="Cartes de saillance", width=400)
+                show_image("img_inter_2.png", caption="Cartes de saillance", width=420)
             with img_tabs[5]:
-                show_image("mtx_eff_LSTM_rem.png", caption="Matrice de confusion EfficientNetB0-LSTM", use_container_width=True)
+                show_image("mtx_eff_LSTM_rem.png", caption="Matrice de confusion EfficientNetB0-LSTM", width=520)
 
     with tabs[1]:
         st.markdown("""
@@ -754,6 +764,16 @@ elif page == "Démo IA":
     with tab2:
         st.header("Prédiction sur un nouveau produit")
 
+        with st.expander("Limites de la démo IA"):
+            st.markdown("""
+            - Le modèle prédit uniquement les catégories du challenge Rakuten.
+            - Un objet hors catégorie sera quand même rapproché de la catégorie la plus probable.
+            - La prédiction dépend fortement de la qualité de la description textuelle.
+            - Les catégories visuellement proches, comme livres, DVD ou magazines, peuvent être confondues.
+            - Le modèle peut être moins fiable si l’image est floue, mal cadrée ou sans objet principal clair.
+            - La première prédiction peut être lente, car le modèle est chargé depuis Hugging Face.
+            """)
+
         st.write("""
         Entrez une description produit et ajoutez une image.
         Le modèle prédit ensuite la catégorie Rakuten la plus probable.
@@ -787,7 +807,6 @@ elif page == "Démo IA":
                     )
 
                     confidence = float(np.max(predictions)) * 100
-
                     img = Image.open(image_path)
 
                     st.image(
