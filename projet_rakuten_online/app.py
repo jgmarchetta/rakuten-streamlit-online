@@ -2,14 +2,14 @@ import streamlit as st
 import pandas as pd
 from pathlib import Path
 
+BASE_DIR = Path(__file__).parent
+DATA_DIR = BASE_DIR / "data"
+IMG_DIR = BASE_DIR / "assets" / "images"
+
 st.set_page_config(
     page_title="Projet Rakuten - Classification Multimodale",
     layout="wide"
 )
-
-BASE_DIR = Path(__file__).parent
-DATA_DIR = BASE_DIR / "data"
-ASSETS_DIR = BASE_DIR / "assets" / "images"
 
 st.markdown("""
 <style>
@@ -50,16 +50,58 @@ if page == "Présentation":
         unsafe_allow_html=True
     )
 
-    st.write("""
-    Ce projet vise à classifier des produits Rakuten à partir de données textuelles et d’images.
-    
-    L’objectif est de prédire le code type produit à partir :
-    - de la désignation,
-    - de la description,
-    - de l’image du produit.
-    """)
+    tab1, tab2 = st.tabs(["Contexte", "Objectif du projet"])
 
-    st.info("Version online simplifiée en cours de préparation.")
+    with tab1:
+        st.write("""
+        Dans le cadre d'un challenge organisé par l'ENS et de notre formation Data Scientist au sein de DataScientest,
+        nous avons travaillé sur la classification de produits à grande échelle.
+
+        Le projet vise à prédire le type de chaque produit tel que défini dans le catalogue de Rakuten France.
+        """)
+
+        image_path = IMG_DIR / "rakuten_image_entreprise.jpg"
+
+        if image_path.exists():
+            col1, col2, col3 = st.columns(3)
+            with col2:
+                st.image(
+                    str(image_path),
+                    caption="Siège social de Rakuten à Futakotamagawa, Tokyo",
+                    use_container_width=True
+                )
+        else:
+            st.warning("Image manquante : rakuten_image_entreprise.jpg")
+
+        st.write("""
+        **Rakuten, Inc. (Rakuten Kabushiki-gaisha)**  
+        Société japonaise de services internet créée en février 1997.
+
+        Depuis juin 2010, Rakuten a acquis PriceMinister, premier site de commerce électronique en France.
+        """)
+
+    with tab2:
+        st.write("""
+        **Objectif du projet**
+
+        L’objectif est la classification multimodale à grande échelle des produits.
+
+        Il s’agit de prédire le code type produit à partir de deux sources :
+
+        - les données textuelles,
+        - les images des produits.
+        """)
+
+        image_path = IMG_DIR / "objectif_projet.png"
+
+        if image_path.exists():
+            st.image(
+                str(image_path),
+                caption="Objectif du projet",
+                use_container_width=True
+            )
+        else:
+            st.warning("Image manquante : objectif_projet.png")
 
 
 elif page == "Données":
