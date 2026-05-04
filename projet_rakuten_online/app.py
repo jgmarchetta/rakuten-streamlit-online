@@ -517,7 +517,7 @@ elif page == "Machine Learning":
         with st.expander("**Amélioration B** Score F1-pondéré : 0.79"):
             st.write("Détails sur l'amélioration du scénario B.")
             show_image(
-                "ameb.png",
+                "Ameb.png",
                 caption="Amélioration B",
                 width=600
             )
