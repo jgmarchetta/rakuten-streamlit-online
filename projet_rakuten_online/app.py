@@ -6,6 +6,10 @@ BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
 IMG_DIR = BASE_DIR / "assets" / "images"
 
+@st.cache_data
+def load_data(csv_path, sep=","):
+    return pd.read_csv(csv_path, sep=sep)
+
 st.set_page_config(
     page_title="Projet Rakuten - Classification Multimodale",
     layout="wide"
