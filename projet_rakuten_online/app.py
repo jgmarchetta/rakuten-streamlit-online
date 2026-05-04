@@ -5,15 +5,14 @@ import seaborn as sns
 from pathlib import Path
 
 # --------------------------------------------------
-# CONFIGURATION DES CHEMINS
+# CONFIGURATION
 # --------------------------------------------------
 BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
 IMG_DIR = BASE_DIR / "assets" / "images"
 
-# --------------------------------------------------
-# CONFIGURATION PAGE
-# --------------------------------------------------
+HF_BASE_URL = "https://huggingface.co/datasets/jgmarchetta/rakuten-data/resolve/main/"
+
 st.set_page_config(
     page_title="Projet Rakuten - Classification Multimodale",
     layout="wide"
@@ -47,13 +46,20 @@ body, h1, h2, h3, h4, h5, h6, p, div, span, li, a {
 # --------------------------------------------------
 # FONCTIONS
 # --------------------------------------------------
-@st.cache_data
-def load_data(csv_path, sep=","):
-    return pd.read_csv(csv_path, sep=sep)
+@st.cache_data(show_spinner="Chargement des données...")
+def load_local_csv(path, sep=","):
+    return pd.read_csv(path, sep=sep)
+
+
+@st.cache_data(show_spinner="Chargement du fichier depuis Hugging Face...")
+def load_remote_csv(filename, sep=","):
+    url = HF_BASE_URL + filename
+    return pd.read_csv(url, sep=sep)
 
 
 def show_image(filename, caption=None, width=None, use_container_width=False):
     image_path = IMG_DIR / filename
+
     if image_path.exists():
         st.image(
             str(image_path),
@@ -165,6 +171,7 @@ if page == "Présentation":
         """)
 
         col1, col2, col3 = st.columns(3)
+
         with col2:
             show_image(
                 "rakuten_image_entreprise.jpg",
@@ -181,7 +188,7 @@ if page == "Présentation":
 
     with tab2:
         st.write("""
-        **Objectif du projet**  
+        **Objectif du projet**
 
         L’objectif du projet est la classification multimodale à grande échelle des données de produits en codes de types de produits.
 
@@ -206,6 +213,7 @@ elif page == "Données":
     st.write("Le projet comporte 3 jeux de données textuelles et 1 jeu de données images.")
 
     col1, col2, col3 = st.columns(3)
+
     with col2:
         st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
         st.markdown("""
@@ -221,18 +229,13 @@ elif page == "Données":
         ["X_train", "X_test", "Y_train", "Fichier Images Train"]
     )
 
-    x_train_file = DATA_DIR / "X_train_update.csv"
-    x_test_file = DATA_DIR / "X_test_update.csv"
-    y_train_file = DATA_DIR / "Y_train_CVw08PX.csv"
-
-    df_train = load_data(x_train_file) if x_train_file.exists() else None
-    df_test = load_data(x_test_file) if x_test_file.exists() else None
-    df_target = load_data(y_train_file) if y_train_file.exists() else None
-
     if selected_dataset == "X_train":
         st.write("Vous avez sélectionné le jeu de données X_train.")
 
-        if df_train is not None:
+        try:
+            df_train = load_remote_csv("X_train_update.csv")
+
+            st.success("Fichier X_train chargé depuis Hugging Face.")
             st.data_editor(
                 df_train.head(),
                 column_config={
@@ -265,13 +268,17 @@ elif page == "Données":
                     "histogramme_langues_X_train.png",
                     use_container_width=True
                 )
-        else:
-            st.error("Fichier manquant : data/X_train_update.csv")
+
+        except Exception as e:
+            st.error(f"Erreur lors du chargement de X_train : {e}")
 
     elif selected_dataset == "X_test":
         st.write("Vous avez sélectionné le jeu de données X_test.")
 
-        if df_test is not None:
+        try:
+            df_test = load_remote_csv("X_test_update.csv")
+
+            st.success("Fichier X_test chargé depuis Hugging Face.")
             st.data_editor(
                 df_test.head(),
                 column_config={
@@ -304,13 +311,18 @@ elif page == "Données":
                     "histogramme_langues_X_test.png",
                     use_container_width=True
                 )
-        else:
-            st.error("Fichier manquant : data/X_test_update.csv")
+
+        except Exception as e:
+            st.error(f"Erreur lors du chargement de X_test : {e}")
 
     elif selected_dataset == "Y_train":
         st.write("Vous avez sélectionné le jeu de données Y_train.")
 
-        if df_target is not None:
+        try:
+            df_target = load_remote_csv("Y_train_CVw08PX.csv")
+
+            st.success("Fichier Y_train chargé depuis Hugging Face.")
+
             col1, col2 = st.columns(2)
 
             with col1:
@@ -340,8 +352,9 @@ elif page == "Données":
                 caption="27 catégories de produits",
                 width=500
             )
-        else:
-            st.error("Fichier manquant : data/Y_train_CVw08PX.csv")
+
+        except Exception as e:
+            st.error(f"Erreur lors du chargement de Y_train : {e}")
 
     elif selected_dataset == "Fichier Images Train":
         st.write("Vous avez sélectionné le fichier d'images du jeu de données images.")
@@ -370,6 +383,7 @@ elif page == "Données":
                 "<h2 style='text-align: center; color: #004BAA;'>Rapprochement Textes - Images - Variable Cible</h2>",
                 unsafe_allow_html=True
             )
+
             st.write("Voici un exemple de rapprochement entre textes, images et variable cible.")
 
             show_image(
@@ -423,7 +437,7 @@ elif page == "Démo":
         prediction_file = DATA_DIR / "df_prediction_final.csv"
 
         if prediction_file.exists():
-            df_prediction_final = load_data(prediction_file)
+            df_prediction_final = load_local_csv(prediction_file)
 
             st.data_editor(
                 df_prediction_final.head(20),
@@ -441,11 +455,13 @@ elif page == "Démo":
 
         st.warning("""
         La prédiction par texte + image sera ajoutée dans une étape suivante.
+
         Les fichiers modèle `.keras` et `.pkl` sont trop lourds pour GitHub classique.
+        Ils pourront être stockés sur Hugging Face dans une prochaine étape.
         """)
 
         st.write("""
-        **Limitations de l'outil**  
+        **Limitations de l'outil**
 
         Cet outil a été conçu pour répondre à la demande du Challenge Rakuten.
         Les catégories prédites sont celles définies dans le jeu de données Y_train.
@@ -454,7 +470,7 @@ elif page == "Démo":
         category_file = DATA_DIR / "categories_prdtypecode.csv"
 
         if category_file.exists():
-            df_categorie = load_data(category_file, sep=";")
+            df_categorie = load_local_csv(category_file, sep=";")
 
             st.subheader("Rappel des catégories")
             st.data_editor(
