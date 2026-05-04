@@ -111,18 +111,111 @@ elif page == "Données":
     )
 
     st.write("""
-    Cette page affichera progressivement les datasets utilisés dans le projet.
+    Le projet Rakuten repose sur des données textuelles, des images produits et une variable cible correspondant au type de produit.
+    Dans cette version online, nous affichons les fichiers disponibles dans le dépôt GitHub.
     """)
 
-    prediction_file = DATA_DIR / "df_prediction_final.csv"
+    tab1, tab2, tab3 = st.tabs([
+        "Prédictions",
+        "Catégories",
+        "Visualisations"
+    ])
 
-    if prediction_file.exists():
-        df = load_csv(prediction_file)
-        st.subheader("Exemple de prédictions")
-        st.dataframe(df.head(20), use_container_width=True)
-    else:
-        st.warning("Le fichier df_prediction_final.csv n'est pas encore présent dans le dossier data/.")
+    # -----------------------------
+    # TAB 1 : Prédictions
+    # -----------------------------
+    with tab1:
+        st.subheader("Jeu de prédictions final")
 
+        prediction_file = DATA_DIR / "df_prediction_final.csv"
+
+        if prediction_file.exists():
+            df_prediction = load_data(prediction_file)
+
+            st.write("Aperçu des 20 premières lignes :")
+            st.dataframe(df_prediction.head(20), use_container_width=True)
+
+            st.write("Dimensions du fichier :")
+            st.info(f"{df_prediction.shape[0]} lignes et {df_prediction.shape[1]} colonnes")
+
+            numeric_columns = df_prediction.select_dtypes(include=["int64", "float64"]).columns.tolist()
+
+            if len(numeric_columns) > 0:
+                selected_col = st.selectbox(
+                    "Sélectionnez une colonne numérique à visualiser :",
+                    numeric_columns
+                )
+
+                fig, ax = plt.subplots(figsize=(10, 4))
+                df_prediction[selected_col].value_counts().head(20).plot(kind="bar", ax=ax)
+                ax.set_title(f"Répartition de la colonne : {selected_col}")
+                ax.set_xlabel(selected_col)
+                ax.set_ylabel("Nombre d'occurrences")
+                st.pyplot(fig)
+            else:
+                st.warning("Aucune colonne numérique disponible pour générer un graphique.")
+        else:
+            st.error("Fichier manquant : data/df_prediction_final.csv")
+
+    # -----------------------------
+    # TAB 2 : Catégories
+    # -----------------------------
+    with tab2:
+        st.subheader("Catégories de produits")
+
+        category_file = DATA_DIR / "categories_prdtypecode.csv"
+
+        if category_file.exists():
+            df_categories = pd.read_csv(category_file, sep=";")
+
+            st.write("Liste des catégories disponibles :")
+            st.dataframe(df_categories, use_container_width=True)
+
+            st.write("Nombre de catégories :")
+            st.info(f"{df_categories.shape[0]} catégories")
+
+            if "code type" in df_categories.columns:
+                fig, ax = plt.subplots(figsize=(10, 4))
+                df_categories["code type"].astype(str).value_counts().plot(kind="bar", ax=ax)
+                ax.set_title("Répartition des codes catégories")
+                ax.set_xlabel("Code type")
+                ax.set_ylabel("Nombre")
+                st.pyplot(fig)
+        else:
+            st.error("Fichier manquant : data/categories_prdtypecode.csv")
+
+    # -----------------------------
+    # TAB 3 : Visualisations
+    # -----------------------------
+    with tab3:
+        st.subheader("Images et visualisations du projet")
+
+        images_to_show = {
+            "Objectif du projet": "objectif_projet.png",
+            "Siège Rakuten": "rakuten_image_entreprise.jpg",
+            "Synthèse des scores Deep Learning": "score_deep.png",
+            "Catégories de produits": "categorie_produit.png",
+            "Visualisation produits par catégorie": "visualisation_pdt_categorie.png",
+            "Schéma X_train": "image_variable X_train_file.png",
+            "Schéma Y_train": "image_variable Y_train_file.png",
+        }
+
+        selected_image_label = st.selectbox(
+            "Sélectionnez une visualisation :",
+            list(images_to_show.keys())
+        )
+
+        image_name = images_to_show[selected_image_label]
+        image_path = IMG_DIR / image_name
+
+        if image_path.exists():
+            st.image(
+                str(image_path),
+                caption=selected_image_label,
+                use_container_width=True
+            )
+        else:
+            st.warning(f"Image manquante dans assets/images/ : {image_name}")
 
 elif page == "Résultats":
     st.markdown(
